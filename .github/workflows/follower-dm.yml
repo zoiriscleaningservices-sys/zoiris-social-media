@@ -1,0 +1,50 @@
+name: Zoiris Auto-DM Welcome Bot
+
+on:
+  # Runs every hour automatically
+  schedule:
+    - cron: '0 * * * *'
+  # Also allows manual trigger from GitHub UI
+  workflow_dispatch:
+
+jobs:
+  send-welcome-dms:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: follower-bot/package.json
+
+      - name: Install dependencies
+        working-directory: follower-bot
+        run: npm install
+
+      - name: Install Playwright browsers
+        working-directory: follower-bot
+        run: npx playwright install chromium --with-deps
+
+      - name: Run Auto-DM Bot
+        working-directory: follower-bot
+        env:
+          IG_USERNAME: ${{ secrets.IG_USERNAME }}
+          IG_PASSWORD: ${{ secrets.IG_PASSWORD }}
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+        run: node bot.js
+
+      - name: Commit updated known_followers.json
+        run: |
+          git config user.name "Zoiris Bot"
+          git config user.email "bot@zoiriscleaningservices.com"
+          git add follower-bot/known_followers.json
+          git diff --cached --quiet || git commit -m "🤖 Update known followers [skip ci]"
+          git push

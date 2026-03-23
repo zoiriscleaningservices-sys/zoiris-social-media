@@ -1,0 +1,4 @@
+node_modules/
+follower-bot/node_modules/
+.env
+*.env

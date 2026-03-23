@@ -1,0 +1,16 @@
+{
+  "name": "zoiris-follower-bot",
+  "version": "1.0.0",
+  "description": "Auto-DM welcome bot for Zoiris Cleaning Services Instagram",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "install-browsers": "npx playwright install chromium"
+  },
+  "dependencies": {
+    "playwright": "^1.43.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
