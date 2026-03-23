@@ -79,11 +79,27 @@ async function main() {
 
   const known = loadKnown();
   const knownSet = new Set(known.followers);
-  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
+  const IG_SESSION  = process.env.IG_SESSION  || '';  // sessionid cookie value
+  const IG_CSRF     = process.env.IG_CSRF     || '';  // csrftoken cookie value
+  const IG_USER_ID  = process.env.IG_USER_ID  || '';  // ds_user_id cookie value
+
+  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-blink-features=AutomationControlled'] });
   const ctx = await browser.newContext({
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
     viewport: { width: 1280, height: 800 },
+    locale: 'en-US',
   });
+
+  // Inject session cookies so we skip UI login entirely
+  if (IG_SESSION) {
+    console.log('🍪 Using session cookies (bypassing login page)...');
+    await ctx.addCookies([
+      { name: 'sessionid',   value: decodeURIComponent(IG_SESSION), domain: '.instagram.com', path: '/', httpOnly: true,  secure: true, sameSite: 'Lax' },
+      { name: 'csrftoken',   value: IG_CSRF,     domain: '.instagram.com', path: '/', httpOnly: false, secure: true, sameSite: 'Lax' },
+      { name: 'ds_user_id', value: IG_USER_ID,  domain: '.instagram.com', path: '/', httpOnly: true,  secure: true, sameSite: 'Lax' },
+    ]);
+  }
+
   const page = await ctx.newPage();
 
   // ── Step 1: Login ────────────────────────────────────────────────────────
