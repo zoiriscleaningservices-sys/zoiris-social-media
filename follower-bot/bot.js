@@ -88,26 +88,75 @@ async function main() {
 
   // ── Step 1: Login ────────────────────────────────────────────────────────
   console.log('🔐 Logging into Instagram...');
-  await page.goto('https://www.instagram.com/accounts/login/', { waitUntil: 'networkidle' });
-  await wait(2000);
-
-  await page.fill('input[name="username"]', IG_USERNAME);
-  await wait(500);
-  await page.fill('input[name="password"]', IG_PASSWORD);
-  await wait(500);
-  await page.click('button[type="submit"]');
-  await page.waitForNavigation({ waitUntil: 'networkidle', timeout: 15000 }).catch(() => {});
+  await page.goto('https://www.instagram.com/', { waitUntil: 'domcontentloaded', timeout: 60000 });
   await wait(3000);
 
-  // Dismiss "Save login info" popup if present
-  const saveBtn = page.locator('button:has-text("Not Now"), button:has-text("Not now")');
-  if (await saveBtn.count() > 0) await saveBtn.first().click().catch(() => {});
-  await wait(1500);
+  // Dismiss cookie consent (EU/global overlay)
+  for (const cookieText of ['Allow all cookies', 'Accept All', 'Allow essential and optional cookies', 'Only allow essential cookies']) {
+    const cookieBtn = page.locator(`button:has-text("${cookieText}")`);
+    if (await cookieBtn.count() > 0) { await cookieBtn.first().click().catch(() => {}); await wait(1500); break; }
+  }
 
-  // Dismiss "Turn on notifications" popup if present
-  const notifBtn = page.locator('button:has-text("Not Now"), button:has-text("Not now")');
-  if (await notifBtn.count() > 0) await notifBtn.first().click().catch(() => {});
-  await wait(1500);
+  // Navigate to login page
+  await page.goto('https://www.instagram.com/accounts/login/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await wait(3000);
+
+  // Try multiple username selectors
+  const usernameSelectors = [
+    'input[name="username"]',
+    'input[aria-label="Phone number, username, or email"]',
+    'input[type="text"]',
+  ];
+  let usernameField = null;
+  for (const sel of usernameSelectors) {
+    try {
+      await page.waitForSelector(sel, { timeout: 10000 });
+      usernameField = sel;
+      break;
+    } catch {}
+  }
+  if (!usernameField) throw new Error('Could not find username field on Instagram login page');
+
+  await page.fill(usernameField, IG_USERNAME);
+  await wait(800);
+
+  // Try multiple password selectors
+  const passwordSelectors = ['input[name="password"]', 'input[type="password"]'];
+  let passwordField = null;
+  for (const sel of passwordSelectors) {
+    try {
+      await page.waitForSelector(sel, { timeout: 5000 });
+      passwordField = sel;
+      break;
+    } catch {}
+  }
+  if (!passwordField) throw new Error('Could not find password field');
+  await page.fill(passwordField, IG_PASSWORD);
+  await wait(800);
+
+  // Submit login
+  const submitSelectors = ['button[type="submit"]', 'button:has-text("Log in")', 'button:has-text("Log In")'];
+  for (const sel of submitSelectors) {
+    const btn = page.locator(sel);
+    if (await btn.count() > 0) { await btn.first().click(); break; }
+  }
+  await wait(5000);
+
+  // Dismiss "Save login info" popup
+  for (const txt of ['Not Now', 'Not now', 'Save Info']) {
+    const btn = page.locator(`button:has-text("${txt}")`);
+    if (await btn.count() > 0) { await btn.first().click().catch(() => {}); await wait(1500); break; }
+  }
+
+  // Dismiss "Turn on notifications" popup
+  for (const txt of ['Not Now', 'Not now']) {
+    const btn = page.locator(`button:has-text("${txt}")`);
+    if (await btn.count() > 0) { await btn.first().click().catch(() => {}); await wait(1500); break; }
+  }
+
+  // Verify we logged in
+  const currentUrl = page.url();
+  if (currentUrl.includes('/accounts/login')) throw new Error('Login failed — wrong credentials or Instagram blocked headless login');
 
   // ── Step 2: Get current followers ────────────────────────────────────────
   console.log('📋 Fetching follower list...');
